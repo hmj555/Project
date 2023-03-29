@@ -1,0 +1,123 @@
+#2019
+
+#주제: 전북대 구인/구직 페이지에서 자주 구인하는 상점을 통계내어 알바생들이 자주 바뀌는 곳을 알아본다. 
+#알바생이 자주 바뀌는 곳은 일이 힘들거나, 상점 측에 문제가 있다고 가정하여 피해야 할 알바로 간주한다.
+library(rvest)
+
+#생성할 폴더 이름
+folder <- 'd:/구인'
+
+# 폴더가 없으면 생성
+if(!dir.exists(folder)) dir.create(folder)
+
+# working directory 변경
+setwd(folder)
+
+#전북대 구인/구직 웹페이지
+url='https://www.jbnu.ac.kr/kor/?menuID=425&pno='
+
+page=1:500
+
+pages=paste0(url, page, sep='')
+
+# 저장할 파일 이름 생성
+file.name <- paste0('page', 1:500, '.txt')
+
+for(i in 1:length(pages)){
+  file <- read_html(pages[i]) 
+  # 웹 사이트에서 다운받은 페이지 저장
+  write_xml(file, file = file.name[i])
+}
+
+
+file.name
+#데이터 추출 함수 작성
+data=function(file){
+  #html 읽어오기
+  html=read_html(file)
+  tbody=html%>%html_nodes("tbody")
+  #제목(상호명)만 추출
+  td.left=tbody%>%html_nodes("td.left")
+  a=td.left%>%html_nodes("a")
+  #제목(상호명)텍스트만 추출
+  text1=a%>%html_text()
+  #업종만 추출
+  span.line=tbody%>%html_nodes("span.line")
+  #업종 텍스트만 추출
+  text2=span.line%>%html_text()
+  text=rbind(text1,text2)
+  #데이터 다듬기(\r , \n, \t 없애기)  
+  text <- gsub("(\r)(\n)(\t)*", "", text)
+  #공백 없애기
+  text=gsub("\\s","",text)
+  return(text)
+}
+
+#모든 페이지 데이터 추출
+result=as.vector(sapply(file.name,data))
+head(result)
+
+
+#첫 부분 데이터 확인
+head(result)
+#끝 부분 데이터 확인
+tail(result)
+
+#제목(상호)과 업종 구분
+name=vector()
+cate=vector()
+for(i in 1:(length(result)/2)){
+  name=c(name,result[2*i-1])
+  cate=c(cate,result[2*i])
+}
+
+#제목(상호)의 처음,끝 데이터 확인
+head(name)
+tail(name)
+
+#업종의 처음,끝 데이터 확인
+head(cate)
+tail(cate)
+
+#제목(상호)별로 구인글 빈도수 구하기
+name_tb=table(name)
+
+#최대 구인글 게시 횟수 구하기
+max(name_tb)
+
+#결과: 가장 피해야 할 알바 Top3
+head(sort(name_tb,decreasing=T),3)
+
+#구인/구직에 올라오는 상점들의 평균 구인글 게시 횟수 구하기
+mean(name_tb)
+
+#20개 이상 글을 게시한 상점들 원형그래프로 시각화
+pie(sort(name_tb[name_tb>=20],decreasing = T),col=blues9,main="20개 이상 글을 게시한 상점")
+
+#직종별 구인글 빈도수 구하기
+cate_tb=table(cate)
+cate_tb
+
+#직종별 구인글 게시 횟수 막대그래프로 시각화
+s_cate_tb=sort(cate_tb,decreasing = T)
+b=barplot(s_cate_tb,col="Coral",ylim=c(0,2500),main="직종별 구인글 게시 횟수", las=1)
+text(b,s_cate_tb+100,s_cate_tb) 
+
+
+#구인글 게시 횟수가 20 이상인 상호와 직종 시각화
+library(ggplot2)
+#두 개의 변수를 하나의 데이터프레임으로 만들기
+df=data.frame(name,cate)
+# 상호&직종별 빈도수 구하기
+df_tab=table(df)
+#테이블 형태에서 데이터프레임으로 바꾸기
+df_tab=data.frame(df_tab)
+View(df_tab)
+#구인글 게시 횟수가 20이상인 상화와 직종 데이터 뽑아내기
+data=df_tab[df_tab$Freq>=20,]
+#ggplot으로 시각화
+g=ggplot(data,aes(x=Freq,y=name))+geom_point(aes(col=cate))+labs(title="피해야 할 알바",x="구인글 게시 횟수",y="제목(상호명)")+theme(text=element_text(size=12))+scale_color_discrete(name="직종")
+g
+g+facet_wrap(~cate,nrow=3)
+
+#결론: 알바생이 자주 바뀌는 이유가 상점 측에 있다고 가정한다면 중화산동 영어학원, 송천동골든벨 독서실, TEAM레스토랑은 좋은 근무지가 아니므로 지원할 때 피해야한다. 또한, 서비스 직종이 알바생이 비교적 자주 바뀌고 있다.  
