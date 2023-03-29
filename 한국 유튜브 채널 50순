@@ -1,0 +1,43 @@
+# data-visualization_2019
+
+
+#한국 유투브 채널 50 순위
+
+library(rvest)
+p_url="https://kr.noxinfluencer.com/youtube-channel-rank/top-100-kr-all-youtuber-sorted-by-subs-weekly"
+html=read_html(p_url) #페이지 주소를 받아서 html 가져오기
+
+table= html %>% html_nodes("table") #htmldp table만 추출하기
+
+td=table%>% html_nodes("td") #table의 td 내용들을 추출.
+
+ext=td%>% html_text() #텍스트만 추출
+
+#데이터 다듬기
+text
+
+text=gsub("-","",text) #- 없애기
+
+text=gsub("↑..\\d|↓..\\d","",text)#순위에 특수문자와 그 이하 숫자를 없애줌.
+
+library(stringr) 
+
+text=str_trim(text) #공백 없애기
+
+#1등 , 2등, 3등 순위 넣어주기
+
+text[1]=1
+
+text[7]=2
+
+text[13]=3
+
+Korea_Youtube.Top50=as.data.frame(matrix(text,nrow=50,ncol=6,byrow=TRUE)) #데이터 정리
+
+Korea_Youtube.Top50=Korea_Youtube.Top50[-c(4,5,6)] #순위,채널명과 카테고리만 남기기
+
+names=c("순위","채널명","카테고리") #열 이름 붙이기
+
+names(Korea_Youtube.Top50)=names
+
+Korea_Youtube.Top50
