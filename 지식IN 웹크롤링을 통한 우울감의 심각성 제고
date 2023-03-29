@@ -1,0 +1,85 @@
+#2019/12/02
+
+#네이버 지식인에 '우울'을 제목으로 최근 한달간 작성된 글  7076건 중 네이버가 제공하는 1500건으로 
+# ①최근 한 달 간 하루 최대 '우울'에 관한 글이 몇 건 작성었되는지,
+# ②최근 한 달 간 '우울'에 관한 작성 글이 며칠 만에 1개씩 늘어났는지를 알아본다. 
+# ③최근 한 달 간 '우울'에 관한 작성 글에서 '자살'이 언급될 확률을 구해본다.
+
+library(RSelenium)
+library(XML)
+
+remDr <- remoteDriver( #4446L포트와 크롬을 연결
+  remoteServerAddr = "localhost",
+  port = 4446L,
+  browserName = "chrome"
+)
+
+remDr$open() #크롬 웹 창 열기
+#크롤링하고자 하는 사이트 주소 입력
+url="https://kin.naver.com/search/list.nhn?sort=none&query=%EC%9A%B0%EC%9A%B8&period=1m&section=kin&page="
+#1~150페이지까지 크롤링
+page=1:150
+pages=paste0(url,page) 
+extract=function(page){
+  remDr$navigate(page)
+  #페이지 소스 가져오기
+  html <- remDr$getPageSource()[[1]]
+  #HTML 읽어오기
+  html <- read_html(html)
+  #ul class만 추출
+  ul_class=html%>%html_nodes("ul")
+  #dt만 추출
+  dt=ul_class%>%html_nodes("dt")
+  #제목만 추출  
+  title=dt%>%html_nodes("a")%>%html_text()
+  #dl만 추출
+  dl=ul_class%>%html_nodes("dl")
+  #작성 날짜 추출
+  date=dl%>%html_nodes("dd.txt_inline")%>%html_text()
+  #title은 데이터 다듬을 필요 없음.
+  #date 데이터 마지막 "." 삭제
+  date=gsub("\\.$","",date)
+  #date 데이터를 내장된 날짜형태로 바꾸기.
+  date=gsub("\\.","-",date)
+  df=as.data.frame(matrix(c(title,date),nrow=10,ncol=2))
+  names=c("제목","작성 날짜")
+  names(df)=names
+  df
+  return(df)}
+
+result=lapply(pages,extract) 
+result
+result=do.call(rbind,result)
+#날짜를 오름차순으로 정렬
+D=sort(as.character(result[,2])) ;D
+table(D) #날짜별 작성 글의 개수
+# ①하루 최대 Day_max 만큼의 글이 생성 됌.
+Day_max=max(table(D))
+Day_max
+
+#작성 날짜 간의 간격 구하기
+interval=diff(as.Date(D)) ;interval
+tb=table(interval) ;tb #매일 우울에 대한 글이 작성되고 있음을 알 수 있다.
+# ②최근 한 달 간 '우울'에 관한 작성 글이 m일에 한 건씩 늘어남.
+m=mean(interval)
+barplot(tb,main=paste("최근 한 달 간 NAVER 지식인에 '우울'을 주제로 한 글의 평균 생성 간격(일)= ",round(m,2)),ylim=c(0,1600),xlab="글의 생성 간격(일)",ylab="빈도 수")
+
+#우울 자살을 검색했을 때 지식인에 나오는 글 중 최근 한 달 간 작성된 글 크롤링
+url2="https://kin.naver.com/search/list.nhn?sort=none&query=%EC%9A%B0%EC%9A%B8%20%EC%9E%90%EC%82%B4&period=1m&section=kin&page="
+#1~58페이지까지 크롤링
+page2=1:58
+pages2=paste0(url2,page2)
+result2=lapply(pages2,extract) 
+result2=do.call(rbind,result2)
+#우울을 검색했을 때 나오는 글과 우울 자살을 검색했을 때 나오는 글이 같은 글인 경우만 추출.
+inter=intersect(result,result2)
+inter
+# ③최근 한 달 간 우울에 대한 글을 쓴 사람이 글에 자살도 언급할 확률이 percent%이다.
+percent=nrow(inter)/nrow(result)*100
+
+#결론: 최근 한 달 간의 7076건의 글 중 1500건만으로 봤을 때 하루 최대 143건의 글이 작성 됌.
+#결론: 최근 한 달 간의 7076건의 글 중 1500건만으로 봤을 때 0.02일 에 한번씩 '우울'에 대한 글이 작성되는 것으로 보아 현대인의 우울증에 대한 심각성 제고가 필요하다고 생각됌.
+#결론: 최근 한 달 간의 7076건의 글 중 우울감을 겪는 사람이 7.07% 꼴로 자살에 대해 언급한 것으로 보아 우울감을 느끼는 것이 매우 위험하다고 생각 됌.
+
+#문제점: 네이버 지식인에서 제공하는 정보의 양이 너무 적다.(7076건 중 1500건만 제공)
+
